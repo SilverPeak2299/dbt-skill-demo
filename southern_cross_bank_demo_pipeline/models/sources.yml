@@ -1,0 +1,278 @@
+version: 2
+
+sources:
+  - name: raw_bank
+    description: "Raw Southern Cross Mutual Bank source tables loaded into DuckDB schema raw_bank."
+    schema: raw_bank
+    tables:
+      - name: core_customers
+        description: "Daily customer master snapshot from the core banking platform. Contains direct identifiers in the source; marts derive safe analytic attributes only."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 30, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: customer_id
+            description: "Stable customer identifier."
+            tests: [not_null, unique]
+          - name: customer_type
+            description: "Customer legal type."
+          - name: given_name
+            description: "PII customer first name. Not promoted to marts."
+          - name: family_name
+            description: "PII customer family name. Not promoted to marts."
+          - name: business_name
+            description: "PII business or trust display name. Not promoted to marts."
+          - name: date_of_birth
+            description: "PII date of birth. Used only to derive age band."
+          - name: email_address
+            description: "PII email address. Not promoted to marts."
+          - name: mobile_number
+            description: "PII mobile number. Not promoted to marts."
+          - name: tax_residency_country
+            description: "Tax residency ISO country code."
+          - name: residency_status
+            description: "Customer residency status."
+          - name: customer_status
+            description: "Customer lifecycle status."
+          - name: privacy_opt_out
+            description: "Customer has opted out of optional marketing analytics."
+          - name: created_at
+            description: "UTC source creation timestamp."
+          - name: updated_at
+            description: "UTC source update timestamp."
+          - name: closed_at
+            description: "UTC customer closure timestamp when applicable."
+
+      - name: core_accounts
+        description: "Daily account master snapshot from the core banking platform."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 30, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: account_id
+            description: "Stable account identifier."
+            tests: [not_null, unique]
+          - name: customer_id
+            description: "Primary customer owner from the core account record."
+          - name: product_code
+            description: "Product catalogue code."
+          - name: account_type
+            description: "High-level account type."
+          - name: bsb
+            description: "Australian BSB. Treated as sensitive and not promoted to marts."
+          - name: masked_account_number
+            description: "Masked account number."
+          - name: currency_code
+            description: "ISO currency code."
+          - name: account_status
+            description: "Account lifecycle status."
+          - name: branch_id
+            description: "Origination branch identifier."
+          - name: opened_at
+            description: "UTC account opened timestamp."
+          - name: closed_at
+            description: "UTC account closed timestamp."
+          - name: updated_at
+            description: "UTC source update timestamp."
+
+      - name: account_relationships
+        description: "Daily account relationship snapshot covering owners, signatories, trustees, and guarantors."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 30, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: relationship_id
+            description: "Stable account relationship identifier."
+            tests: [not_null, unique]
+          - name: account_id
+            description: "Related account identifier."
+          - name: customer_id
+            description: "Related customer identifier."
+          - name: relationship_type
+            description: "Relationship role for the account."
+          - name: relationship_start_date
+            description: "Relationship effective start date."
+          - name: relationship_end_date
+            description: "Relationship effective end date."
+          - name: is_authorized_to_transact
+            description: "Whether the related customer can transact."
+          - name: updated_at
+            description: "UTC source update timestamp."
+
+      - name: core_transactions
+        description: "Incremental core banking non-card transaction ledger extract."
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 30, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: transaction_id
+            description: "Core banking transaction identifier."
+            tests: [not_null, unique]
+          - name: account_id
+            description: "Account posted to."
+          - name: posted_at
+            description: "UTC transaction posting timestamp."
+          - name: effective_date
+            description: "Accounting effective date."
+          - name: transaction_type
+            description: "Source transaction code."
+          - name: transaction_description
+            description: "Free-text transaction description."
+          - name: amount
+            description: "Absolute transaction amount before signing."
+          - name: currency_code
+            description: "ISO currency code."
+          - name: debit_credit_indicator
+            description: "Source debit or credit indicator."
+          - name: transaction_status
+            description: "Source transaction lifecycle status."
+          - name: reversal_indicator
+            description: "Whether this transaction reverses another transaction."
+          - name: original_transaction_id
+            description: "Original source transaction when reversed."
+          - name: ingested_at
+            description: "UTC ingestion timestamp."
+
+      - name: card_transactions
+        description: "Incremental card authorization and clearing feed from the card processor."
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
+        columns:
+          - name: card_transaction_id
+            description: "Card processor transaction identifier."
+            tests: [not_null, unique]
+          - name: account_id
+            description: "Funding account identifier."
+          - name: card_id_hash
+            description: "Hashed card identifier."
+          - name: authorization_at
+            description: "UTC authorization timestamp."
+          - name: cleared_at
+            description: "UTC clearing timestamp when available."
+          - name: card_transaction_type
+            description: "Card transaction lifecycle type."
+          - name: merchant_name
+            description: "Merchant display name."
+          - name: merchant_category_code
+            description: "MCC preserved as string."
+          - name: merchant_country_code
+            description: "Merchant ISO country code."
+          - name: authorization_amount
+            description: "Authorized amount in transaction currency."
+          - name: authorization_currency_code
+            description: "Authorization currency code."
+          - name: settlement_amount
+            description: "Final settlement amount when cleared."
+          - name: settlement_currency_code
+            description: "Settlement currency code."
+          - name: card_transaction_status
+            description: "Card processor lifecycle status."
+          - name: fraud_indicator
+            description: "Processor suspected fraud indicator."
+          - name: decline_reason_code
+            description: "Decline reason for declined transactions."
+          - name: ingested_at
+            description: "UTC ingestion timestamp."
+
+      - name: daily_account_balances
+        description: "Core banking end-of-day account balance snapshot by account and Australia/Sydney business date."
+        loaded_at_field: snapshot_created_at
+        freshness:
+          warn_after: {count: 30, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: account_id
+            description: "Account identifier."
+            tests: [not_null]
+          - name: balance_date
+            description: "Australia/Sydney business date."
+            tests: [not_null]
+          - name: ledger_balance
+            description: "Posted ledger balance."
+          - name: available_balance
+            description: "Available balance after holds and limits."
+          - name: overdraft_limit
+            description: "Approved overdraft limit when available."
+          - name: arrears_days
+            description: "Days in arrears for relevant products."
+          - name: currency_code
+            description: "ISO currency code."
+          - name: snapshot_created_at
+            description: "UTC snapshot creation timestamp."
+
+      - name: risk_customer_flags
+        description: "Customer risk and care flag event extract."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 3, period: hour}
+          error_after: {count: 6, period: hour}
+        columns:
+          - name: risk_flag_id
+            description: "Stable risk flag event identifier."
+            tests: [not_null, unique]
+          - name: customer_id
+            description: "Flagged customer identifier."
+          - name: flag_type
+            description: "Risk or care flag type."
+          - name: flag_status
+            description: "Flag lifecycle status."
+          - name: flag_start_date
+            description: "Flag effective start date."
+          - name: flag_end_date
+            description: "Flag effective end date."
+          - name: severity
+            description: "Operational severity."
+          - name: source_case_id
+            description: "Operational case identifier. Not exposed in marts."
+          - name: updated_at
+            description: "UTC source update timestamp."
+
+      - name: branch_reference
+        description: "Monthly branch reference data."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 45, period: day}
+          error_after: {count: 60, period: day}
+        columns:
+          - name: branch_id
+            description: "Branch identifier."
+            tests: [not_null, unique]
+          - name: branch_name
+            description: "Branch display name."
+          - name: state_code
+            description: "Australian state or territory code."
+          - name: region_name
+            description: "Operating region."
+          - name: is_active
+            description: "Active branch flag."
+          - name: updated_at
+            description: "UTC source update timestamp."
+
+      - name: product_reference
+        description: "Monthly retail banking product reference data."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 45, period: day}
+          error_after: {count: 60, period: day}
+        columns:
+          - name: product_code
+            description: "Product identifier."
+            tests: [not_null, unique]
+          - name: product_name
+            description: "Product display name."
+          - name: product_family
+            description: "Product family."
+          - name: account_type
+            description: "Account type grouping."
+          - name: is_offset_eligible
+            description: "Product can offset a mortgage."
+          - name: is_interest_bearing
+            description: "Product accrues customer interest."
+          - name: updated_at
+            description: "UTC source update timestamp."

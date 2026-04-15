@@ -1,0 +1,331 @@
+version: 2
+
+models:
+  - name: stg_core_customers
+    description: "Cleans customer identifiers, lifecycle status, residency fields, privacy flags, and lifecycle timestamps. Grain: one row per source customer record. PII names and contact fields are intentionally excluded."
+    columns:
+      - name: customer_id
+        description: "Stable customer identifier."
+        tests: [not_null, unique]
+      - name: customer_type
+        description: "Customer legal type."
+        tests:
+          - accepted_values:
+              values: ['PERSON', 'SOLE_TRADER', 'COMPANY', 'TRUST']
+      - name: date_of_birth
+        description: "Sensitive source date used only for age-band derivation."
+      - name: residency_status
+        description: "Customer residency status with blanks standardized to UNKNOWN."
+      - name: customer_status
+        description: "Customer lifecycle status."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['ACTIVE', 'DORMANT', 'DECEASED', 'OFFBOARDED', 'SUSPENDED']
+
+  - name: stg_core_accounts
+    description: "Cleans account metadata, product, ownership, status, currency, and lifecycle dates. Grain: one row per source account record."
+    columns:
+      - name: account_id
+        description: "Stable account identifier."
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Primary customer owner from the source account record."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_customers')
+              field: customer_id
+      - name: account_type
+        description: "High-level account type."
+        tests:
+          - accepted_values:
+              values: ['TRANSACTION', 'SAVINGS', 'TERM_DEPOSIT', 'OFFSET', 'CREDIT_CARD']
+      - name: account_status
+        description: "Account lifecycle status."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['OPEN', 'CLOSED', 'FROZEN', 'PENDING_CLOSE', 'CHARGED_OFF']
+
+  - name: stg_account_relationships
+    description: "Normalizes customer-account relationships. Grain: one row per source account relationship."
+    columns:
+      - name: relationship_id
+        description: "Stable relationship identifier."
+        tests: [not_null, unique]
+      - name: account_id
+        description: "Related account identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_accounts')
+              field: account_id
+      - name: customer_id
+        description: "Related customer identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_customers')
+              field: customer_id
+      - name: relationship_type
+        description: "Customer role for the account."
+        tests:
+          - accepted_values:
+              values: ['PRIMARY_OWNER', 'JOINT_OWNER', 'SIGNATORY', 'TRUSTEE', 'GUARANTOR']
+
+  - name: stg_core_transactions
+    description: "Standardizes core banking transaction identifiers, local posting timestamps, transaction codes, amounts, statuses, and reversal fields. Grain: one row per source core transaction."
+    columns:
+      - name: transaction_id
+        description: "Core banking transaction identifier."
+        tests: [not_null, unique]
+      - name: account_id
+        description: "Posted account identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_accounts')
+              field: account_id
+      - name: amount
+        description: "Absolute source amount before signing."
+        tests: [not_null]
+      - name: transaction_type
+        description: "Source core banking transaction code."
+        tests:
+          - accepted_values:
+              values: ['DEP', 'WDR', 'FEE', 'INT_CR', 'INT_DR', 'BPAY', 'OSKO_IN', 'OSKO_OUT', 'REV']
+      - name: transaction_status
+        description: "Source transaction lifecycle status."
+        tests:
+          - accepted_values:
+              values: ['PENDING', 'POSTED', 'REVERSED', 'FAILED']
+
+  - name: stg_core_card_transactions
+    description: "Standardizes card authorizations and clearings, merchant values, settlement fields, fraud indicator, and local timestamps. Grain: one row per source card authorization or clearing record."
+    columns:
+      - name: card_transaction_id
+        description: "Card processor transaction identifier."
+        tests: [not_null, unique]
+      - name: account_id
+        description: "Funding account identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_accounts')
+              field: account_id
+      - name: merchant_category_code
+        description: "Merchant category code preserved as varchar to retain leading zeroes."
+      - name: card_transaction_type
+        description: "Card transaction type."
+        tests:
+          - accepted_values:
+              values: ['PURCHASE', 'REFUND', 'CASH_ADVANCE', 'CHARGEBACK']
+      - name: card_transaction_status
+        description: "Card transaction lifecycle status."
+        tests:
+          - accepted_values:
+              values: ['AUTHORIZED', 'CLEARED', 'DECLINED', 'REVERSED']
+      - name: fraud_indicator
+        description: "Processor suspected fraud indicator."
+        tests:
+          - accepted_values:
+              values: ['Y', 'N']
+              config:
+                where: "fraud_indicator is not null"
+
+  - name: stg_daily_account_balances
+    description: "Standardizes daily end-of-day balances. Grain: one row per account per Australia/Sydney balance date."
+    columns:
+      - name: account_id
+        description: "Account identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_accounts')
+              field: account_id
+      - name: balance_date
+        description: "Australia/Sydney business date."
+        tests: [not_null]
+      - name: ledger_balance
+        description: "Posted ledger balance."
+        tests: [not_null]
+      - name: available_balance
+        description: "Available balance after holds and limits."
+        tests: [not_null]
+
+  - name: stg_risk_customer_flags
+    description: "Normalizes customer risk and care flag events. Grain: one row per source risk flag event."
+    columns:
+      - name: risk_flag_id
+        description: "Stable risk flag event identifier."
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Flagged customer identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_core_customers')
+              field: customer_id
+      - name: flag_type
+        description: "Risk or care flag type."
+        tests:
+          - accepted_values:
+              values: ['AML_REVIEW', 'KYC_EXPIRED', 'SANCTIONS_HIT', 'FINANCIAL_HARDSHIP', 'VULNERABLE_CUSTOMER', 'PRIVACY_RESTRICTED']
+      - name: flag_status
+        description: "Flag lifecycle status."
+        tests:
+          - accepted_values:
+              values: ['ACTIVE', 'CLEARED', 'FALSE_POSITIVE', 'EXPIRED']
+
+  - name: stg_branch_reference
+    description: "Cleans branch reference data. Grain: one row per branch."
+    columns:
+      - name: branch_id
+        description: "Branch identifier."
+        tests: [not_null, unique]
+
+  - name: stg_product_reference
+    description: "Cleans product reference data. Grain: one row per product."
+    columns:
+      - name: product_code
+        description: "Product identifier."
+        tests: [not_null, unique]
+      - name: product_family
+        description: "Product family."
+        tests:
+          - accepted_values:
+              values: ['DEPOSITS', 'CARDS', 'MORTGAGES', 'PERSONAL_LENDING']
+
+  - name: int_customer_account_relationships
+    description: "Resolves customer-account relationship details with related customer and account context. Grain: one row per customer-account relationship."
+    columns:
+      - name: relationship_id
+        description: "Stable relationship identifier."
+        tests: [not_null, unique]
+      - name: account_id
+        description: "Account identifier."
+      - name: related_customer_id
+        description: "Related customer identifier."
+      - name: is_current_relationship
+        description: "True when the relationship has no end date or has not ended as of current_date."
+
+  - name: int_transactions_normalized
+    description: "Unions core and card transactions into a consistent signed transaction structure. Grain: one row per normalized financial transaction event."
+    columns:
+      - name: transaction_id
+        description: "Prefixed normalized transaction identifier."
+        tests: [not_null, unique]
+      - name: account_id
+        description: "Account identifier."
+        tests:
+          - relationships:
+              to: ref('stg_core_accounts')
+              field: account_id
+      - name: transaction_category
+        description: "Normalized transaction category."
+      - name: signed_amount
+        description: "Debit-negative and credit-positive amount."
+        tests: [not_null]
+      - name: transaction_status
+        description: "Normalized lifecycle status."
+
+  - name: int_account_daily_balances
+    description: "Combines official daily balances with posted transaction activity and overdraft indicators. Grain: one row per account per snapshot date."
+    columns:
+      - name: account_id
+        description: "Account identifier."
+        tests: [not_null]
+      - name: snapshot_date
+        description: "Australia/Sydney snapshot date."
+        tests: [not_null]
+
+  - name: dim_customers
+    description: "Current customer dimension with safe analytic attributes, derived age band, lifecycle status, privacy flags, and active risk summary. Grain: one row per current source customer."
+    columns:
+      - name: customer_id
+        description: "Stable customer identifier."
+        tests: [not_null, unique]
+      - name: age_band
+        description: "Derived age band; raw date of birth is not exposed."
+      - name: has_active_risk_flag
+        description: "True when the customer has any current active risk or care flag."
+
+  - name: dim_accounts
+    description: "Current account dimension with product, branch, status, ownership summary, and account lifecycle dates. Grain: one row per current source account."
+    columns:
+      - name: account_id
+        description: "Stable account identifier."
+        tests: [not_null, unique]
+      - name: primary_customer_id
+        description: "Primary owner from the source account record."
+        tests:
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: account_holder_type_summary
+        description: "Comma-separated active relationship types for the account."
+
+  - name: fact_transactions
+    description: "Transaction fact for posted transactions plus pending card authorizations retained for pending lifecycle reporting. Grain: one row per normalized transaction included in analytics."
+    columns:
+      - name: transaction_id
+        description: "Prefixed normalized transaction identifier."
+        tests: [not_null, unique]
+      - name: account_id
+        description: "Account identifier."
+        tests:
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+      - name: customer_id
+        description: "Primary customer owner of the account."
+      - name: signed_amount
+        description: "Debit-negative and credit-positive amount."
+        tests: [not_null]
+      - name: transaction_status
+        description: "POSTED for posted rows; PENDING only when is_pending is true."
+
+  - name: fact_account_daily_snapshot
+    description: "Daily account snapshot for liquidity, overdraft, activity, and regulatory reporting. Grain: one row per account per snapshot date."
+    columns:
+      - name: account_id
+        description: "Account identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+      - name: snapshot_date
+        description: "Australia/Sydney snapshot date."
+        tests: [not_null]
+      - name: ledger_balance
+        description: "Official ledger balance."
+      - name: available_balance
+        description: "Available balance after holds and limits."
+      - name: transaction_count
+        description: "Posted transaction count for the account and snapshot date."
+      - name: net_transaction_amount
+        description: "Posted signed transaction sum for the account and snapshot date."
+
+  - name: mart_customer_risk_profile
+    description: "Customer risk profile mart with one row per customer per snapshot date and boolean regulatory, financial crime, hardship, vulnerability, and privacy flags."
+    columns:
+      - name: customer_id
+        description: "Customer identifier."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: snapshot_date
+        description: "Australia/Sydney snapshot date."
+        tests: [not_null]
+      - name: aml_review_required
+        description: "True when an AML review flag is active as of the snapshot date."
+      - name: sanctions_screening_hit
+        description: "True when a sanctions hit flag is active as of the snapshot date."
+      - name: hardship_active
+        description: "True when a financial hardship flag is active as of the snapshot date."
+      - name: vulnerable_customer
+        description: "True when a vulnerable customer flag is active as of the snapshot date."

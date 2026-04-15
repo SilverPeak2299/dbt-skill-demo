@@ -1,0 +1,64 @@
+name: Build and Publish dbt Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "southern_cross_bank_demo_pipeline/**"
+      - "data/bank_demo.duckdb"
+      - ".github/workflows/publish-dbt-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: southern_cross_bank_demo_pipeline
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dbt
+        run: python -m pip install --upgrade pip dbt-duckdb
+
+      - name: Validate dbt project
+        run: dbt build --profiles-dir .
+
+      - name: Generate dbt docs
+        run: dbt docs generate --profiles-dir .
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: southern_cross_bank_demo_pipeline/target
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

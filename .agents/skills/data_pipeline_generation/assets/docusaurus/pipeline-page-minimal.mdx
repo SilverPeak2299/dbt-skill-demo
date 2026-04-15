@@ -1,0 +1,53 @@
+---
+id: {{pipeline_context_slug}}
+title: {{pipeline_context_title}}
+sidebar_label: {{pipeline_context_title}}
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# {{pipeline_context_title}}
+
+<Tabs>
+  <TabItem value="overview" label="Overview" default>
+
+{{overview_markdown}}
+
+  </TabItem>
+  <TabItem value="pipeline" label="DBT pipeline">
+
+{{dbt_pipeline_markdown}}
+
+  </TabItem>
+  <TabItem value="definition" label="Data definition">
+
+{{data_definition_markdown}}
+
+  </TabItem>
+  <TabItem value="mapping" label="Source-to-target mappings">
+
+{{source_to_target_mapping_markdown}}
+
+  </TabItem>
+  <TabItem value="design" label="Design document">
+
+{{design_document_markdown}}
+
+  </TabItem>
+  <TabItem value="diagrams" label="Mermaid diagrams">
+
+## Pipeline Flow
+
+```mermaid
+{{pipeline_flow_mermaid}}
+```
+
+## Lineage
+
+```mermaid
+{{lineage_mermaid}}
+```
+
+  </TabItem>
+</Tabs>
