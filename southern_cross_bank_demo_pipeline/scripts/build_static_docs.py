@@ -97,11 +97,18 @@ def markdown_to_html(markdown: str) -> str:
 
         if stripped.startswith("```"):
             if in_code:
-                classes = f' class="language-{html.escape(code_lang)}"' if code_lang else ""
-                output.append(
-                    f"<pre><code{classes}>"
-                    f"{html.escape(chr(10).join(code_lines))}</code></pre>"
-                )
+                code = chr(10).join(code_lines)
+                if code_lang == "mermaid":
+                    output.append(f'<pre class="mermaid">{html.escape(code)}</pre>')
+                else:
+                    classes = (
+                        f' class="language-{html.escape(code_lang)}"'
+                        if code_lang
+                        else ""
+                    )
+                    output.append(
+                        f"<pre><code{classes}>{html.escape(code)}</code></pre>"
+                    )
                 in_code = False
                 code_lang = ""
                 code_lines.clear()
@@ -291,6 +298,15 @@ def build_site(project_dir: Path, output_dir: Path) -> None:
       color: inherit;
       padding: 0;
     }}
+    .mermaid {{
+      background: #ffffff;
+      border: 1px solid #d4d4d4;
+      border-radius: 8px;
+      color: #171717;
+      margin: 18px 0;
+      overflow-x: auto;
+      padding: 16px;
+    }}
     table {{
       border-collapse: collapse;
       display: block;
@@ -318,6 +334,10 @@ def build_site(project_dir: Path, output_dir: Path) -> None:
   <main>
     {body}
   </main>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({{ startOnLoad: true, theme: "default", securityLevel: "strict" }});
+  </script>
 </body>
 </html>
 """

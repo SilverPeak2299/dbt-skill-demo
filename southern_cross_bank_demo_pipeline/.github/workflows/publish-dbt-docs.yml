@@ -36,9 +36,6 @@ jobs:
       - name: Build static documentation
         run: python scripts/build_static_docs.py . site
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
