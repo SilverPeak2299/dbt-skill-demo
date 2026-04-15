@@ -11,6 +11,7 @@
 | Output structure | Pass | Generated `models`, `docs`, `mappings`, `design`, `.github/workflows`, `.gitignore`, dbt project, profile, and tests. |
 | Privacy scan | Pass with note | Mart SQL does not select direct names, email addresses, phone numbers, BSB, masked account number, or source case id. `date_of_birth` is referenced only to derive `age_band` and is not selected as a mart output column. |
 | Bundled output validator | Warning | The validator flags legitimate dbt Jinja (`ref`, `source`, `config`) and GitHub Actions expressions as unresolved placeholders. These are required syntax, not unresolved template tokens. |
+| Static docs workflow | Pass | GitHub Pages now publishes generated static docs from `site/` without running dbt. |
 
 ## DBT Validation Not Run Locally
 
@@ -40,5 +41,5 @@ The main validation assumption is that dbt Jinja and GitHub Actions expressions 
 | --- | --- |
 | Business date reproducibility | Decide whether `current_date` should be replaced by a supplied reporting date variable. |
 | Pending card authorizations | Confirm whether pending card authorizations should remain in `fact_transactions` or move to a separate operational fact. |
-| GitHub Pages | Enable GitHub Pages in the consuming repository settings and confirm the default branch is `main`. |
-| Docusaurus MDX | If using the generated MDX page, confirm the consuming Docusaurus site supports `@theme/Tabs`, `@theme/TabItem`, and Mermaid fences. |
+| GitHub Pages | Enable GitHub Pages in the consuming repository settings and confirm the default branch is `main`. The included workflow publishes static docs without requiring `profiles.yml`. |
+| Docusaurus MDX | If later moving the generated MDX page into Docusaurus, confirm the consuming Docusaurus site supports `@theme/Tabs`, `@theme/TabItem`, and Mermaid fences. |

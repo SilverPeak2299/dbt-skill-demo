@@ -132,7 +132,8 @@ Freshness expectations are documented in `models/sources.yml`. Command validatio
 - Package profile: `southern_cross_bank_demo`
 - DuckDB path default: `../data/bank_demo.duckdb`, overridable with `DUCKDB_PATH`
 - Local validation command: `dbt build --profiles-dir southern_cross_bank_demo_pipeline`
-- Documentation command: `dbt docs generate --profiles-dir southern_cross_bank_demo_pipeline`
+- Local dbt documentation command: `dbt docs generate --profiles-dir southern_cross_bank_demo_pipeline`
+- GitHub Pages documentation command: `python scripts/build_static_docs.py . site`
 - Included workflow: `.github/workflows/publish-dbt-docs.yml` inside the output package. If the package is kept nested, copy that workflow to the consuming repository root `.github/workflows/` or adapt the paths.
 
 ## Assumptions, Risks, And Open Questions
@@ -141,5 +142,5 @@ Freshness expectations are documented in `models/sources.yml`. Command validatio
 - Assumption: `mart_customer_risk_profile` snapshot dates align to available account balance snapshot dates.
 - Assumption: Pending card authorizations are retained in `fact_transactions` because the requirements specify pending handling; declined and failed events are excluded.
 - Risk: `current_date` makes age bands and current active flags date-sensitive. For reproducible historical runs, parameterize the reporting date.
-- Risk: GitHub Actions will need `data/bank_demo.duckdb` committed or generated in CI before `dbt build` can pass.
-- Open question: Whether the consuming docs site is Docusaurus and has Mermaid enabled. The MDX page is generated as a static deliverable, but this repository does not contain a Docusaurus project.
+- Risk: Full dbt validation still needs a private profile and a local or CI-generated DuckDB file.
+- Open question: Whether a later consuming docs site should replace the static GitHub Pages demo with Docusaurus and Mermaid rendering.

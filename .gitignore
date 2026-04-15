@@ -12,6 +12,7 @@ target/
 dbt_packages/
 logs/
 .dbt/
+site/
 profiles.yml
 
 # DuckDB generated database files
@@ -22,4 +23,3 @@ profiles.yml
 data/*.duckdb
 data/*.duckdb.wal
 data/*.duckdb.tmp
-

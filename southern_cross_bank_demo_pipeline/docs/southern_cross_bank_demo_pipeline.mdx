@@ -52,6 +52,13 @@ dbt build --project-dir southern_cross_bank_demo_pipeline --profiles-dir souther
 dbt docs generate --project-dir southern_cross_bank_demo_pipeline --profiles-dir southern_cross_bank_demo_pipeline
 ```
 
+The GitHub Pages demo does not run dbt or publish `profiles.yml`. It builds static review docs from the generated MDX, design, mapping, and validation files:
+
+```bash
+cd southern_cross_bank_demo_pipeline
+python scripts/build_static_docs.py . site
+```
+
 Use `DUCKDB_PATH` to point at a different DuckDB file:
 
 ```bash
@@ -208,6 +215,7 @@ Open questions:
 Validation notes:
 
 - Static package validation was run with the bundled skill validator.
+- The GitHub Pages workflow performs profile-free static documentation publishing.
 - `dbt build` was not run locally because `dbt` was not installed during generation.
 
   </TabItem>

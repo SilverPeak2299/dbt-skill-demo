@@ -1,4 +1,4 @@
-name: Build and Publish dbt Docs
+name: Publish Static Pipeline Docs
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - "southern_cross_bank_demo_pipeline/**"
-      - "data/bank_demo.duckdb"
       - ".github/workflows/publish-dbt-docs.yml"
   workflow_dispatch:
 
@@ -33,17 +32,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: southern_cross_bank_demo_pipeline/requirements.txt
 
-      - name: Install dbt
-        run: python -m pip install --upgrade pip -r requirements.txt
-
-      - name: Validate dbt project
-        run: dbt build --profiles-dir .
-
-      - name: Generate dbt docs
-        run: dbt docs generate --profiles-dir .
+      - name: Build static documentation
+        run: python scripts/build_static_docs.py . site
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -51,7 +42,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: southern_cross_bank_demo_pipeline/target
+          path: southern_cross_bank_demo_pipeline/site
 
   deploy:
     needs: build
